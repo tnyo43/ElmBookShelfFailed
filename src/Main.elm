@@ -5,6 +5,7 @@ import Browser.Navigation as Navigation
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Task
 import Url
 import Url.Parser as Parser exposing ((</>), Parser)
 
@@ -68,17 +69,53 @@ type alias User =
     }
 
 
+type alias Shelf =
+    { id : String
+    , name : String
+    , user : User
+    , books : List String
+    }
+
+
 type alias Model =
     { url : Url.Url
     , key : Navigation.Key
     , user : User
+    , shelves : List Shelf
     }
+
+
+getUser : Cmd Msg
+getUser =
+    Task.perform GetUser <|
+        Task.succeed <|
+            User "0001" "Tomoya"
+
+
+getShelves : Cmd Msg
+getShelves =
+    Task.perform GetShelves <|
+        Task.succeed <|
+            [ Shelf "0001"
+                "tana1"
+                { id = "0002", name = "taro" }
+                [ "桃太郎"
+                , "金太郎"
+                , "かぐや姫"
+                ]
+            , Shelf "0002"
+                "shelf4"
+                { id = "0003", name = "hanako" }
+                [ "ウサギとカメ"
+                , "赤ずきん"
+                ]
+            ]
 
 
 init : () -> Url.Url -> Navigation.Key -> ( Model, Cmd Msg )
 init _ url key =
-    ( Model url key (User "0120" "tom")
-    , Cmd.none
+    ( Model url key (User "" "") []
+    , Cmd.batch [ getUser, getShelves ]
     )
 
 
@@ -91,6 +128,8 @@ init _ url key =
 type Msg
     = UrlRequest Browser.UrlRequest
     | UrlChanged Url.Url
+    | GetUser User
+    | GetShelves (List Shelf)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -107,7 +146,28 @@ update msg model =
                     ( model, Navigation.load href )
 
         UrlChanged url ->
-            ( { model | url = url }
+            let
+                nextModel =
+                    { model | url = url }
+            in
+            case urlToRoute url of
+                Top ->
+                    ( nextModel
+                    , getShelves
+                    )
+
+                _ ->
+                    ( nextModel
+                    , Cmd.none
+                    )
+
+        GetUser user ->
+            ( { model | user = user }
+            , Cmd.none
+            )
+
+        GetShelves shelves ->
+            ( { model | shelves = shelves }
             , Cmd.none
             )
 
@@ -137,6 +197,15 @@ view model =
                     , li [] [ a [ urlOf "/hogehoge" |> href ] [ text "hogehoge" ] ]
                     , li [] [ a [ href "http://www.google.com" ] [ text "google" ] ]
                     ]
+                , ul [] <|
+                    List.map
+                        (\shelf ->
+                            li []
+                                [ text (shelf.name ++ "(" ++ shelf.user.name ++ ")")
+                                , ul [] <| List.map (\book -> li [] [ text book ]) shelf.books
+                                ]
+                        )
+                        model.shelves
                 ]
             }
 
