@@ -3,8 +3,57 @@ module Main exposing (main)
 import Browser
 import Browser.Navigation as Navigation
 import Html exposing (..)
+import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Url
+import Url.Parser as Parser exposing ((</>), Parser)
+
+
+
+-- ---------------------------
+-- ROUTE
+-- ---------------------------
+
+
+type Route
+    = Top
+    | MyPage
+    | NotFound
+
+
+route : Parser (Route -> a) a
+route =
+    Parser.oneOf
+        [ Parser.map Top Parser.top
+        , Parser.map MyPage (Parser.s "user")
+        , Parser.map MyPage (Parser.s "mypage")
+        ]
+
+
+routeLocal : Parser (Route -> a) a
+routeLocal =
+    Parser.s "src" </> Parser.s "Main.elm" </> route
+
+
+urlToRoute : Url.Url -> Route
+urlToRoute url =
+    Parser.parse routeLocal url |> Maybe.withDefault NotFound
+
+
+
+-- ---------------------------
+-- URL
+-- ---------------------------
+
+
+localUrlPrefix : String
+localUrlPrefix =
+    "/src/Main.elm"
+
+
+urlOf : String -> String
+urlOf =
+    (++) localUrlPrefix
 
 
 
@@ -71,9 +120,30 @@ update msg model =
 
 view : Model -> Browser.Document Msg
 view model =
-    { title = "Book Shelf"
-    , body = [ div [] [ text model.user.name ] ]
-    }
+    case urlToRoute model.url of
+        NotFound ->
+            { title = "404"
+            , body =
+                [ div [] [ text "404 | not found" ]
+                ]
+            }
+
+        Top ->
+            { title = "Book Shelf"
+            , body =
+                [ div [] [ text <| "ようこそ" ++ model.user.name ++ "さん (" ++ Url.toString model.url ++ ")" ]
+                , ul []
+                    [ li [] [ a [ urlOf "/mypage" |> href ] [ text "mypage" ] ]
+                    , li [] [ a [ urlOf "/hogehoge" |> href ] [ text "hogehoge" ] ]
+                    , li [] [ a [ href "http://www.google.com" ] [ text "google" ] ]
+                    ]
+                ]
+            }
+
+        MyPage ->
+            { title = "my page"
+            , body = []
+            }
 
 
 
