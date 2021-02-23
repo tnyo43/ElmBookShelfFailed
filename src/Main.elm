@@ -18,7 +18,7 @@ import Url.Parser as Parser exposing ((</>), Parser)
 
 type Route
     = Top
-    | MyPage
+    | UserPage String
     | NotFound
 
 
@@ -26,8 +26,7 @@ route : Parser (Route -> a) a
 route =
     Parser.oneOf
         [ Parser.map Top Parser.top
-        , Parser.map MyPage (Parser.s "user")
-        , Parser.map MyPage (Parser.s "mypage")
+        , Parser.map UserPage (Parser.s "user" </> Parser.string)
         ]
 
 
@@ -81,6 +80,7 @@ type alias Model =
     { url : Url.Url
     , key : Navigation.Key
     , user : User
+    , users : List User
     , shelves : List Shelf
     }
 
@@ -92,20 +92,30 @@ getUser =
             User "0001" "Tomoya"
 
 
+getUsers : Cmd Msg
+getUsers =
+    Task.perform GetUsers <|
+        Task.succeed <|
+            [ User "0001" "Tomoya"
+            , User "0002" "Hanako"
+            , User "0003" "Tarou"
+            ]
+
+
 getShelves : Cmd Msg
 getShelves =
     Task.perform GetShelves <|
         Task.succeed <|
             [ Shelf "0001"
                 "tana1"
-                { id = "0002", name = "taro" }
+                { id = "0002", name = "Hanako" }
                 [ "桃太郎"
                 , "金太郎"
                 , "かぐや姫"
                 ]
             , Shelf "0002"
                 "shelf4"
-                { id = "0003", name = "hanako" }
+                { id = "0002", name = "Hanako" }
                 [ "ウサギとカメ"
                 , "赤ずきん"
                 ]
@@ -114,8 +124,8 @@ getShelves =
 
 init : () -> Url.Url -> Navigation.Key -> ( Model, Cmd Msg )
 init _ url key =
-    ( Model url key (User "" "") []
-    , Cmd.batch [ getUser, getShelves ]
+    ( Model url key (User "" "") [] []
+    , Cmd.batch [ getUser, getUsers, getShelves ]
     )
 
 
@@ -129,6 +139,7 @@ type Msg
     = UrlRequest Browser.UrlRequest
     | UrlChanged Url.Url
     | GetUser User
+    | GetUsers (List User)
     | GetShelves (List Shelf)
 
 
@@ -166,6 +177,11 @@ update msg model =
             , Cmd.none
             )
 
+        GetUsers users ->
+            ( { model | users = users }
+            , Cmd.none
+            )
+
         GetShelves shelves ->
             ( { model | shelves = shelves }
             , Cmd.none
@@ -191,13 +207,22 @@ view model =
         Top ->
             { title = "Book Shelf"
             , body =
-                [ div [] [ text <| "ようこそ" ++ model.user.name ++ "さん (" ++ Url.toString model.url ++ ")" ]
-                , ul []
-                    [ li [] [ a [ urlOf "/mypage" |> href ] [ text "mypage" ] ]
-                    , li [] [ a [ urlOf "/hogehoge" |> href ] [ text "hogehoge" ] ]
-                    , li [] [ a [ href "http://www.google.com" ] [ text "google" ] ]
-                    ]
-                , ul [] <|
+                [ ul [] <|
+                    List.map
+                        (\user ->
+                            li []
+                                [ a [ "/user/" ++ user.id |> urlOf |> href ]
+                                    [ text (user.name ++ "(" ++ user.id ++ ")") ]
+                                ]
+                        )
+                        model.users
+                ]
+            }
+
+        UserPage _ ->
+            { title = "user"
+            , body =
+                [ ul [] <|
                     List.map
                         (\shelf ->
                             li []
@@ -207,11 +232,6 @@ view model =
                         )
                         model.shelves
                 ]
-            }
-
-        MyPage ->
-            { title = "my page"
-            , body = []
             }
 
 
